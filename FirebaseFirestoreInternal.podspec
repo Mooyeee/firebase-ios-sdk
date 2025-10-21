@@ -12,8 +12,8 @@ Google Cloud Firestore is a NoSQL document database built for automatic scaling,
   s.authors          = 'Google, Inc.'
 
   s.source           = {
-    :git => 'https://github.com/firebase/firebase-ios-sdk.git',
-    :tag => 'CocoaPods-' + s.version.to_s
+    :git => 'https://github.com/Mooyeee/firebase-ios-sdk.git',
+    :branch => 'mooyee'
   }
 
   s.ios.deployment_target = '15.0'

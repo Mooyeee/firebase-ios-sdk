@@ -16,8 +16,8 @@ Pod::Spec.new do |s|
   # NOTE that these should not be used externally, this is for Firebase pods to depend on each
   # other.
   s.source           = {
-    :git => 'https://github.com/firebase/firebase-ios-sdk.git',
-    :tag => 'CocoaPods-' + s.version.to_s
+    :git => 'https://github.com/Mooyeee/firebase-ios-sdk.git',
+    :branch => 'mooyee'
   }
 
   s.swift_version = '5.9'

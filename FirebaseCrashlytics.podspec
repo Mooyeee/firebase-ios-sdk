@@ -7,8 +7,8 @@ Pod::Spec.new do |s|
   s.license          = { :type => 'Apache-2.0', :file => 'Crashlytics/LICENSE' }
   s.authors          = 'Google, Inc.'
   s.source           = {
-    :git => 'https://github.com/firebase/firebase-ios-sdk.git',
-    :tag => 'CocoaPods-' + s.version.to_s
+    :git => 'https://github.com/Mooyeee/firebase-ios-sdk.git',
+    :branch => 'mooyee'
   }
 
   ios_deployment_target = '15.0'
