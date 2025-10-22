@@ -85,32 +85,7 @@
 
     override func viewDidAppear(_ animated: Bool) {
       super.viewDidAppear(animated)
-      
-      // Clear webview cache and cookies before starting OAuth flow
-      // This ensures users can select different accounts for each login
-      clearWebViewData { [weak self] in
-        guard let self = self else { return }
-        self.webView?.webView.load(URLRequest(url: self.url))
-      }
-    }
-
-    // MARK: - Private Methods
-    
-    private func clearWebViewData(completion: @escaping () -> Void) {
-      guard let webView = webView?.webView else {
-        completion()
-        return
-      }
-      
-      let dataStore = webView.configuration.websiteDataStore
-      let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
-      
-      // Clear all website data (cookies, cache, local storage, etc.)
-      dataStore.removeData(ofTypes: dataTypes, modifiedSince: Date.distantPast) {
-        DispatchQueue.main.async {
-          completion()
-        }
-      }
+      webView?.webView.load(URLRequest(url: url))
     }
 
     // MARK: - Actions
@@ -198,7 +173,6 @@
     private var url: URL
     weak var delegate: AuthWebViewControllerDelegate?
     private weak var webView: AuthWebView?
-    private var isCanceled = false
 
     // MARK: - Initialization
 
@@ -229,49 +203,14 @@
 
     override func viewDidAppear() {
       super.viewDidAppear()
-      
-      // Clear webview cache and cookies before starting OAuth flow
-      // This ensures users can select different accounts for each login
-      clearWebViewData { [weak self] in
-        guard let self = self else { return }
-        self.webView?.webView.load(URLRequest(url: self.url))
-        
-        // Force layout update to prevent white screen issue
-        DispatchQueue.main.async {
-          self.webView?.needsLayout = true
-          self.webView?.layoutSubtreeIfNeeded()
-        }
-      }
+      webView?.webView.load(URLRequest(url: url))
     }
 
     // MARK: - Public Methods
     
     func handleWindowClose() {
       // Called when user closes the window manually using standard macOS controls
-      // Ensure we only cancel once to prevent duplicate delegate calls
-      if !isCanceled {
-        isCanceled = true
-        delegate?.webViewControllerDidCancel(self)
-      }
-    }
-
-    // MARK: - Private Methods
-    
-    private func clearWebViewData(completion: @escaping () -> Void) {
-      guard let webView = webView?.webView else {
-        completion()
-        return
-      }
-      
-      let dataStore = webView.configuration.websiteDataStore
-      let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
-      
-      // Clear all website data (cookies, cache, local storage, etc.)
-      dataStore.removeData(ofTypes: dataTypes, modifiedSince: Date.distantPast) {
-        DispatchQueue.main.async {
-          completion()
-        }
-      }
+      delegate?.webViewControllerDidCancel(self)
     }
 
     // MARK: - WKNavigationDelegate
@@ -279,11 +218,6 @@
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationAction: WKNavigationAction) async
       -> WKNavigationActionPolicy {
-      // Don't process navigation if already canceled
-      if isCanceled {
-        return .cancel
-      }
-      
       _ = delegate?.webViewController(
         self,
         canHandle: navigationAction.request.url ?? url
@@ -293,26 +227,17 @@
 
     func webView(_ webView: WKWebView,
                  didStartProvisionalNavigation navigation: WKNavigation!) {
-      if !isCanceled {
-        self.webView?.spinner.isHidden = false
-        self.webView?.spinner.startAnimation(nil)
-      }
+      self.webView?.spinner.isHidden = false
+      self.webView?.spinner.startAnimation(nil)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-      if !isCanceled {
-        self.webView?.spinner.isHidden = true
-        self.webView?.spinner.stopAnimation(nil)
-      }
+      self.webView?.spinner.isHidden = true
+      self.webView?.spinner.stopAnimation(nil)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!,
                  withError error: Error) {
-      if isCanceled {
-        // Don't process errors if we've already canceled
-        return
-      }
-      
       if (error as NSError).domain == NSURLErrorDomain,
          (error as NSError).code == NSURLErrorCancelled {
         // It's okay for the page to be redirected before it is completely loaded.  See b/32028062 .
@@ -323,7 +248,5 @@
       delegate?.webViewController(self, didFailWithError: error)
     }
   }
-
-
 
 #endif

@@ -81,17 +81,9 @@
       viewController?.present(viewControllerToPresent, animated: flag, completion: completion)
     }
 
-    public func dismiss(completion: (() -> Void)?) {
-    // Store a reference to the window so we can close it after the view controller is dismissed
-    let window = currentWebWindow
-    currentWebWindow = nil
-    
-    // Close the window
-    DispatchQueue.main.async {
-      window?.close()
-      completion?()
+    func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
+      viewController?.dismiss(animated: flag, completion: completion)
     }
-  }
 
     private let viewController: UIViewController?
   }
@@ -109,7 +101,6 @@
   /// Custom window class for OAuth flow
   final class AuthWebWindow: NSWindow {
     weak var authViewController: NSViewController?
-    private var isClosed = false
     
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
       super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
@@ -125,26 +116,11 @@
     }
     
     override func performClose(_ sender: Any?) {
-      // Only notify once to prevent duplicate cancellation
-      if !isClosed {
-        isClosed = true
-        // Notify the auth view controller that user canceled
-        if let authVC = authViewController as? AuthWebViewController {
-          authVC.handleWindowClose()
-        }
+      // Notify the auth view controller that user canceled
+      if let authVC = authViewController as? AuthWebViewController {
+        authVC.handleWindowClose()
       }
       super.performClose(sender)
-    }
-    
-    override func close() {
-      // Ensure we cancel the flow even if close() is called directly
-      if !isClosed {
-        isClosed = true
-        if let authVC = authViewController as? AuthWebViewController {
-          authVC.handleWindowClose()
-        }
-      }
-      super.close()
     }
   }
 

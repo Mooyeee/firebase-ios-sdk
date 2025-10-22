@@ -127,11 +127,6 @@
     private func createWebView() -> WKWebView {
       let webView = WKWebView(frame: .zero)
       webView.wantsLayer = true
-      
-      // Improve initial rendering
-      webView.configuration.suppressesIncrementalRendering = false
-      webView.configuration.allowsAirPlayForMediaPlayback = false
-      
       return webView
     }
 
