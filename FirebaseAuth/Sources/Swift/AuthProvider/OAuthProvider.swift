@@ -25,6 +25,20 @@ import Foundation
   /// Dictionary used to configure the OAuth custom parameters.
   @objc open var customParameters: [String: String]?
 
+  #if os(macOS)
+    /// Specifies how the OAuth authentication flow is presented on macOS.
+    ///
+    /// The default is `.systemBrowser`, which uses ASWebAuthenticationSession.
+    ///
+    /// `.embeddedWebView` uses WKWebView in a separate application window.
+    /// Embedded web views do not share the browser's authentication state,
+    /// may not support the same SSO or passkey experience, and may be
+    /// rejected by some identity providers.
+    ///
+    /// For security and compatibility, `.systemBrowser` is recommended.
+    @objc open var presentationMode: AuthPresentationMode = .systemBrowser
+  #endif
+
   /// The provider ID indicating the specific OAuth provider this OAuthProvider instance represents.
   @objc public let providerID: String
 
@@ -265,10 +279,7 @@ import Foundation
                                                  authType: "signInWithRedirect",
                                                  callbackScheme: self.callbackScheme)
             }
-            self.auth.authURLPresenter.present(headfulLiteURL,
-                                               uiDelegate: uiDelegate,
-                                               callbackURLScheme: self.callbackScheme,
-                                               callbackMatcher: callbackMatcher) { callbackURL, error in
+            let presentationCompletion: (URL?, Error?) -> Void = { callbackURL, error in
               if let error {
                 callbackOnMainThread(nil, error)
                 return
@@ -291,6 +302,24 @@ import Foundation
                                                OAuthResponseURLString: oAuthResponseURLString)
               callbackOnMainThread(credential, nil)
             }
+            #if os(macOS)
+              self.auth.authURLPresenter.present(
+                headfulLiteURL,
+                uiDelegate: uiDelegate,
+                callbackURLScheme: self.callbackScheme,
+                presentationMode: self.presentationMode,
+                callbackMatcher: callbackMatcher,
+                completion: presentationCompletion
+              )
+            #else
+              self.auth.authURLPresenter.present(
+                headfulLiteURL,
+                uiDelegate: uiDelegate,
+                callbackURLScheme: self.callbackScheme,
+                callbackMatcher: callbackMatcher,
+                completion: presentationCompletion
+              )
+            #endif
           } catch {
             callbackOnMainThread(nil, error)
           }

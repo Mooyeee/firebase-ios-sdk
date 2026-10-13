@@ -45,9 +45,6 @@
     private func internalAuthURLPresenterTests(useDefaultUIDelegate: Bool) throws {
       let presenterExpectation = expectation(description: "presentation expectation")
       let presenter = AuthURLPresenter()
-      #if os(macOS)
-        presenter.presentationMode = .embeddedWebView
-      #endif
       presenter.fakeUIDelegate = FakeUIDelegate(presenter, presenterExpectation)
 
       let presenterURL = try XCTUnwrap(URL(string: "https://presenter.url"))
@@ -76,10 +73,19 @@
       }
 
       // Present the content.
-      presenter.present(presenterURL,
-                        uiDelegate: uiDelegate,
-                        callbackMatcher: callbackMatcher,
-                        completion: completion)
+      #if os(macOS)
+        presenter.present(presenterURL,
+                          uiDelegate: uiDelegate,
+                          callbackURLScheme: nil,
+                          presentationMode: .embeddedWebView,
+                          callbackMatcher: callbackMatcher,
+                          completion: completion)
+      #else
+        presenter.present(presenterURL,
+                          uiDelegate: uiDelegate,
+                          callbackMatcher: callbackMatcher,
+                          completion: completion)
+      #endif
 
       // Wait for asynchronous presentation to finish before triggering the callback.
       wait(for: [presenterExpectation], timeout: 5)

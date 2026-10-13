@@ -113,7 +113,7 @@
     }
 
     func present(_ viewControllerToPresent: NSViewController,
-                completion: (() -> Void)? = nil) {
+                 completion: (() -> Void)? = nil) {
       embeddedPresenter.present(viewControllerToPresent, completion: completion)
     }
 

@@ -39,7 +39,8 @@
   final class AuthWebAuthenticationSessionPresenter: NSObject,
     ASWebAuthenticationPresentationContextProviding {
     typealias Completion = (URL?, Error?) -> Void
-    typealias SessionFactory = (URL, String?, @escaping Completion) -> AuthSystemAuthenticationSession
+    typealias SessionFactory = (URL, String?, @escaping Completion)
+      -> AuthSystemAuthenticationSession
 
     private var session: AuthSystemAuthenticationSession?
     private var completion: Completion?
@@ -49,7 +50,11 @@
 
     override convenience init() {
       self.init(sessionFactory: { url, scheme, completion in
-        ASWebAuthenticationSession(url: url, callbackURLScheme: scheme, completionHandler: completion)
+        ASWebAuthenticationSession(
+          url: url,
+          callbackURLScheme: scheme,
+          completionHandler: completion
+        )
       })
     }
 
@@ -74,7 +79,9 @@
         completion(nil, NSError(
           domain: "FirebaseAuth.AuthWebAuthenticationSessionPresenter",
           code: 1,
-          userInfo: [NSLocalizedDescriptionKey: "An authentication session is already active or could not be started."]
+          userInfo: [
+            NSLocalizedDescriptionKey: "An authentication session is already active or could not be started.",
+          ]
         ))
         return
       }
@@ -100,7 +107,7 @@
             code: 1,
             userInfo: [
               NSLocalizedDescriptionKey:
-                "An authentication session is already active or could not be started."
+                "An authentication session is already active or could not be started.",
             ]
           )
         )

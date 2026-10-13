@@ -24,8 +24,16 @@
     import AppKit
     import AuthenticationServices
 
-    enum AuthPresentationMode {
+    /// Specifies how the OAuth authentication flow is presented on macOS.
+    @objc(FIRAuthPresentationMode)
+    public enum AuthPresentationMode: Int {
+      /// Uses the system authentication session.
+      /// This is the recommended option and the default.
       case systemBrowser
+
+      /// Uses an embedded WKWebView in a separate application window.
+      /// Embedded web views do not share the browser's authentication state
+      /// and may be blocked by some identity providers.
       case embeddedWebView
     }
   #endif
@@ -34,7 +42,6 @@
   @available(iOS 13, macOS 10.15, *)
   class AuthURLPresenter: NSObject, AuthWebViewControllerDelegate {
     #if os(macOS)
-      var presentationMode: AuthPresentationMode = .systemBrowser
       private var systemPresenter: AuthWebAuthenticationSessionPresenter?
     #endif
 
@@ -49,147 +56,190 @@
                  callbackURLScheme: String? = nil,
                  callbackMatcher: @escaping (URL?) -> Bool,
                  completion: @escaping (URL?, Error?) -> Void) {
-      kAuthGlobalWorkQueue.async { [self] in
-        if self.isPresenting {
-          // Unable to start a new presentation on top of another.
-          // Invoke the new completion closure and leave the old one as-is
-          // to be invoked when the presentation finishes.
-          DispatchQueue.main.async {
-            completion(nil, AuthErrorUtils.webContextCancelledError(message: nil))
+      #if os(macOS)
+        present(url,
+                uiDelegate: uiDelegate,
+                callbackURLScheme: callbackURLScheme,
+                presentationMode: .systemBrowser,
+                callbackMatcher: callbackMatcher,
+                completion: completion)
+      #else
+        kAuthGlobalWorkQueue.async { [self] in
+          if self.isPresenting {
+            // Unable to start a new presentation on top of another.
+            // Invoke the new completion closure and leave the old one as-is
+            // to be invoked when the presentation finishes.
+            DispatchQueue.main.async {
+              completion(nil, AuthErrorUtils.webContextCancelledError(message: nil))
+            }
+            return
           }
-          return
+          self.isPresenting = true
+          self.callbackMatcher = callbackMatcher
+          self.completion = completion
+          DispatchQueue.main.async {
+            self.uiDelegate = uiDelegate ?? AuthDefaultUIDelegate.defaultUIDelegate()
+            #if targetEnvironment(macCatalyst)
+              self.webViewController = AuthWebViewController(url: url, delegate: self)
+              if let webViewController = self.webViewController {
+                let navController = UINavigationController(rootViewController: webViewController)
+                navController.modalPresentationStyle = .fullScreen
+                if let fakeUIDelegate = self.fakeUIDelegate {
+                  fakeUIDelegate.present(navController, animated: true)
+                } else {
+                  self.uiDelegate?.present(navController, animated: true)
+                }
+              }
+            #else
+              self.safariViewController = SFSafariViewController(url: url)
+              self.safariViewController?.delegate = self
+              if let safariViewController = self.safariViewController {
+                if let fakeUIDelegate = self.fakeUIDelegate {
+                  fakeUIDelegate.present(safariViewController, animated: true)
+                } else {
+                  self.uiDelegate?.present(safariViewController, animated: true)
+                }
+              }
+            #endif
+          }
         }
-        self.isPresenting = true
-        self.callbackMatcher = callbackMatcher
-        self.completion = completion
-        DispatchQueue.main.async {
-          self.uiDelegate = uiDelegate ?? AuthDefaultUIDelegate.defaultUIDelegate()
-          #if os(macOS)
-            switch self.presentationMode {
-              case .embeddedWebView:
-                self.webViewController = AuthWebViewController(url: url, delegate: self)
+      #endif
+    }
 
-                if let webViewController = self.webViewController {
-                  if let presentingDelegate = self.fakeUIDelegate ?? self.uiDelegate {
-                    presentingDelegate.present(webViewController)
-                  } else {
-                    kAuthGlobalWorkQueue.async {
-                      self.finishPresentation(
-                        withURL: nil,
-                        error: AuthErrorUtils.webContextCancelledError(
-                          message: "No UI delegate available to present the login flow."
-                        )
-                      )
-                    }
-                  }
-                }
-              case .systemBrowser:
-                guard let callbackURLScheme, !callbackURLScheme.isEmpty else {
+    #if os(macOS)
+      /// Presents an URL using the specified macOS authentication presentation mode.
+      /// - Parameter url: The URL to present.
+      /// - Parameter uiDelegate: The UI delegate used for presentation.
+      /// - Parameter callbackURLScheme: The registered callback URL scheme.
+      /// - Parameter presentationMode: The authentication presentation mode.
+      /// - Parameter callbackMatcher: Determines whether the callback URL is expected.
+      /// - Parameter completion: Called when the presentation finishes.
+      func present(_ url: URL,
+                   uiDelegate: AuthUIDelegate?,
+                   callbackURLScheme: String?,
+                   presentationMode: AuthPresentationMode,
+                   callbackMatcher: @escaping (URL?) -> Bool,
+                   completion: @escaping (URL?, Error?) -> Void) {
+        kAuthGlobalWorkQueue.async { [self] in
+          if self.isPresenting {
+            // Unable to start a new presentation on top of another.
+            // Invoke the new completion closure and leave the old one as-is
+            // to be invoked when the presentation finishes.
+            DispatchQueue.main.async {
+              completion(nil, AuthErrorUtils.webContextCancelledError(message: nil))
+            }
+            return
+          }
+          self.isPresenting = true
+          self.callbackMatcher = callbackMatcher
+          self.completion = completion
+          DispatchQueue.main.async {
+            self.uiDelegate = uiDelegate ?? AuthDefaultUIDelegate.defaultUIDelegate()
+            switch presentationMode {
+            case .embeddedWebView:
+              self.webViewController = AuthWebViewController(url: url, delegate: self)
+
+              if let webViewController = self.webViewController {
+                if let presentingDelegate = self.fakeUIDelegate ?? self.uiDelegate {
+                  presentingDelegate.present(webViewController)
+                } else {
                   kAuthGlobalWorkQueue.async {
                     self.finishPresentation(
                       withURL: nil,
                       error: AuthErrorUtils.webContextCancelledError(
-                        message: "Missing OAuth callback URL scheme."
+                        message: "No UI delegate available to present the login flow."
                       )
                     )
                   }
-                  break
+                }
+              }
+            case .systemBrowser:
+              guard let callbackURLScheme, !callbackURLScheme.isEmpty else {
+                kAuthGlobalWorkQueue.async {
+                  self.finishPresentation(
+                    withURL: nil,
+                    error: AuthErrorUtils.webContextCancelledError(
+                      message: "Missing OAuth callback URL scheme."
+                    )
+                  )
+                }
+                break
+              }
+
+              guard let presentingDelegate = self.fakeUIDelegate ?? self.uiDelegate,
+                    let anchor = presentingDelegate.presentationAnchor() else {
+                kAuthGlobalWorkQueue.async {
+                  self.finishPresentation(
+                    withURL: nil,
+                    error: AuthErrorUtils.webContextCancelledError(
+                      message: "No presentation window available for authentication."
+                    )
+                  )
+                }
+                break
+              }
+
+              let presenter = AuthWebAuthenticationSessionPresenter()
+
+              // Register the presenter before starting the system session.
+              // The registration and the active-flow check are atomic
+              // with respect to kAuthGlobalWorkQueue.
+              let shouldStart = kAuthGlobalWorkQueue.sync {
+                guard self.isPresenting, self.completion != nil else {
+                  return false
                 }
 
-                guard let presentingDelegate = self.fakeUIDelegate ?? self.uiDelegate,
-                      let anchor = presentingDelegate.presentationAnchor() else {
-                  kAuthGlobalWorkQueue.async {
+                self.systemPresenter = presenter
+                return true
+              }
+
+              guard shouldStart else { break }
+
+              // We are already on the main queue.
+              // No additional async dispatch is needed before start().
+              presenter.present(
+                url,
+                callbackURLScheme: callbackURLScheme,
+                anchorProvider: { anchor }
+              ) { [weak self, weak presenter] callbackURL, error in
+                guard let self, let presenter else { return }
+
+                kAuthGlobalWorkQueue.async {
+                  guard self.systemPresenter === presenter else {
+                    return
+                  }
+
+                  if let error {
+                    self.finishPresentation(withURL: nil, error: error)
+                    return
+                  }
+
+                  guard let callbackURL else {
                     self.finishPresentation(
                       withURL: nil,
                       error: AuthErrorUtils.webContextCancelledError(
-                        message: "No presentation window available for authentication."
+                        message: "Authentication session returned no callback URL."
+                      )
+                    )
+                    return
+                  }
+
+                  if !self.canHandle(url: callbackURL) {
+                    self.finishPresentation(
+                      withURL: nil,
+                      error: AuthErrorUtils.webContextCancelledError(
+                        message: "Unexpected OAuth callback URL."
                       )
                     )
                   }
-                  break
                 }
-
-                let presenter = AuthWebAuthenticationSessionPresenter()
-
-                // Register the presenter before starting the system session.
-                // The registration and the active-flow check are atomic
-                // with respect to kAuthGlobalWorkQueue.
-                let shouldStart = kAuthGlobalWorkQueue.sync {
-                  guard self.isPresenting, self.completion != nil else {
-                    return false
-                  }
-
-                  self.systemPresenter = presenter
-                  return true
-                }
-
-                guard shouldStart else { break }
-
-                // We are already on the main queue.
-                // No additional async dispatch is needed before start().
-                presenter.present(
-                  url,
-                  callbackURLScheme: callbackURLScheme,
-                  anchorProvider: { anchor }
-                ) { [weak self, weak presenter] callbackURL, error in
-                  guard let self, let presenter else { return }
-
-                  kAuthGlobalWorkQueue.async {
-                    guard self.systemPresenter === presenter else {
-                      return
-                    }
-
-                    if let error {
-                      self.finishPresentation(withURL: nil, error: error)
-                      return
-                    }
-
-                    guard let callbackURL else {
-                      self.finishPresentation(
-                        withURL: nil,
-                        error: AuthErrorUtils.webContextCancelledError(
-                          message: "Authentication session returned no callback URL."
-                        )
-                      )
-                      return
-                    }
-
-                    if !self.canHandle(url: callbackURL) {
-                      self.finishPresentation(
-                        withURL: nil,
-                        error: AuthErrorUtils.webContextCancelledError(
-                          message: "Unexpected OAuth callback URL."
-                        )
-                      )
-                    }
-                  }
-                }
-            }
-          #elseif targetEnvironment(macCatalyst)
-            self.webViewController = AuthWebViewController(url: url, delegate: self)
-            if let webViewController = self.webViewController {
-              let navController = UINavigationController(rootViewController: webViewController)
-              navController.modalPresentationStyle = .fullScreen
-              if let fakeUIDelegate = self.fakeUIDelegate {
-                fakeUIDelegate.present(navController, animated: true)
-              } else {
-                self.uiDelegate?.present(navController, animated: true)
               }
             }
-          #else
-            self.safariViewController = SFSafariViewController(url: url)
-            self.safariViewController?.delegate = self
-            if let safariViewController = self.safariViewController {
-              if let fakeUIDelegate = self.fakeUIDelegate {
-                fakeUIDelegate.present(safariViewController, animated: true)
-              } else {
-                self.uiDelegate?.present(safariViewController, animated: true)
-              }
-            }
-          #endif
+          }
         }
       }
-    }
+
+    #endif
 
     /// Determines if a URL was produced by the currently presented URL.
     /// - Parameter url: The URL to handle.

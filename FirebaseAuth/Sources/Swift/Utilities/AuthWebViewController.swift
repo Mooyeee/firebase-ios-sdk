@@ -52,6 +52,22 @@ import WebKit
                  callbackURLScheme: String?,
                  callbackMatcher: @escaping (URL?) -> Bool,
                  completion: @escaping (URL?, Error?) -> Void)
+
+    #if os(macOS)
+      /// Presents an URL using the specified macOS authentication presentation mode.
+      /// - Parameter url: The URL to present.
+      /// - Parameter uiDelegate: The UI delegate used for presentation.
+      /// - Parameter callbackURLScheme: The registered callback URL scheme.
+      /// - Parameter presentationMode: The authentication presentation mode.
+      /// - Parameter callbackMatcher: Determines whether the callback URL is expected.
+      /// - Parameter completion: Called when the presentation finishes.
+      func present(_ url: URL,
+                   uiDelegate: AuthUIDelegate?,
+                   callbackURLScheme: String?,
+                   presentationMode: AuthPresentationMode,
+                   callbackMatcher: @escaping (URL?) -> Bool,
+                   completion: @escaping (URL?, Error?) -> Void)
+    #endif
   }
 
 #endif // os(iOS) || os(macOS)
@@ -376,4 +392,23 @@ import WebKit
     }
   }
 
+#endif
+
+#if os(macOS)
+  extension AuthWebViewControllerDelegate {
+    func present(_ url: URL,
+                 uiDelegate: AuthUIDelegate?,
+                 callbackURLScheme: String?,
+                 presentationMode: AuthPresentationMode,
+                 callbackMatcher: @escaping (URL?) -> Bool,
+                 completion: @escaping (URL?, Error?) -> Void) {
+      present(
+        url,
+        uiDelegate: uiDelegate,
+        callbackURLScheme: callbackURLScheme,
+        callbackMatcher: callbackMatcher,
+        completion: completion
+      )
+    }
+  }
 #endif

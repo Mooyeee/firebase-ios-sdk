@@ -16,9 +16,9 @@
 
   import AppKit
   import AuthenticationServices
+  @testable import FirebaseAuth
   import Foundation
   import XCTest
-  @testable import FirebaseAuth
 
   @available(macOS 10.15, *)
   final class AuthWebAuthenticationSessionPresenterTests: XCTestCase {
@@ -135,7 +135,8 @@
       presenter.cancel { cancellationCompletionCount += 1 }
       presenter.cancel { cancellationCompletionCount += 1 }
       fake.complete(error: NSError(domain: ASWebAuthenticationSessionErrorDomain,
-                                   code: ASWebAuthenticationSessionError.Code.canceledLogin.rawValue))
+                                   code: ASWebAuthenticationSessionError.Code.canceledLogin
+                                     .rawValue))
       let drained = expectation(description: "late callback drained")
       DispatchQueue.main.async { drained.fulfill() }
       wait(for: [drained], timeout: 2)
