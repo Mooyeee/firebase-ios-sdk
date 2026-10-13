@@ -45,6 +45,9 @@
     private func internalAuthURLPresenterTests(useDefaultUIDelegate: Bool) throws {
       let presenterExpectation = expectation(description: "presentation expectation")
       let presenter = AuthURLPresenter()
+      #if os(macOS)
+        presenter.presentationMode = .embeddedWebView
+      #endif
       presenter.fakeUIDelegate = FakeUIDelegate(presenter, presenterExpectation)
 
       let presenterURL = try XCTUnwrap(URL(string: "https://presenter.url"))
@@ -129,6 +132,11 @@
         @objc(dismissViewControllerWithCompletion:)
         func dismiss(completion: (() -> Void)?) {
           completion?()
+        }
+
+        @objc(presentationAnchor)
+        func presentationAnchor() -> NSWindow? {
+          NSApp.keyWindow ?? NSApp.mainWindow
         }
       #endif
 

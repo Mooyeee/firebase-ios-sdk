@@ -49,6 +49,7 @@ import WebKit
     /// finishes.
     func present(_ url: URL,
                  uiDelegate: AuthUIDelegate?,
+                 callbackURLScheme: String?,
                  callbackMatcher: @escaping (URL?) -> Bool,
                  completion: @escaping (URL?, Error?) -> Void)
   }

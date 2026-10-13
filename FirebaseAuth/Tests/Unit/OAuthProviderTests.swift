@@ -356,6 +356,7 @@ import FirebaseCore
         }
 
         func present(_ presentURL: URL, uiDelegate UIDelegate: AuthUIDelegate?,
+                     callbackURLScheme: String?,
                      callbackMatcher: @escaping (URL?) -> Bool,
                      completion: @escaping (URL?, Error?) -> Void) {
           // 6. Verify flow triggers present in the FakePresenter class with the right parameters.

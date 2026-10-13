@@ -267,6 +267,7 @@ import Foundation
             }
             self.auth.authURLPresenter.present(headfulLiteURL,
                                                uiDelegate: uiDelegate,
+                                               callbackURLScheme: self.callbackScheme,
                                                callbackMatcher: callbackMatcher) { callbackURL, error in
               if let error {
                 callbackOnMainThread(nil, error)

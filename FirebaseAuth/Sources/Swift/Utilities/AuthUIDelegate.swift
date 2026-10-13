@@ -78,6 +78,12 @@
     /// This block has no return value and takes no parameters.
     @objc(dismissViewControllerWithCompletion:)
     func dismiss(completion: (() -> Void)?)
+
+    /// If implemented, this method will be invoked when Firebase Auth needs to return the
+    /// window anchoring the system authentication session.
+    /// - Returns: The window anchoring the system authentication session.
+    @objc(presentationAnchor)
+    func presentationAnchor() -> NSWindow?
   }
 
   // Extension to support default argument variations.

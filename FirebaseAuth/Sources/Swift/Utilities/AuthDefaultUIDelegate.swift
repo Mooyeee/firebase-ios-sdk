@@ -94,31 +94,12 @@
     internal import GoogleUtilities_Environment
   #endif
 
-  /// Custom window class for OAuth flow
-  final class AuthWebWindow: NSWindow {
-    weak var authViewController: NSViewController?
-
-    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask,
-                  backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
-      super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
-      setupWindow()
-    }
-
-    private func setupWindow() {
-      title = "Sign In"
-      isReleasedWhenClosed = false
-      center()
-      level = .normal
-      styleMask = [.titled, .closable, .miniaturizable, .resizable]
-    }
-  }
-
   /// Class responsible for providing a default AuthUIDelegate.
   ///
   /// This class should be used in the case that a UIDelegate was expected and necessary to
   /// continue a given flow, but none was provided.
   final class AuthDefaultUIDelegate: NSObject, AuthUIDelegate {
-    private var authWindow: AuthWebWindow?
+    private let embeddedPresenter = AuthEmbeddedWebViewPresenter()
 
     /// Returns a default AuthUIDelegate object.
     /// - Returns: The default AuthUIDelegate object.
@@ -132,28 +113,18 @@
     }
 
     func present(_ viewControllerToPresent: NSViewController,
-                 completion: (() -> Void)? = nil) {
-      // Create a new window for the OAuth flow
-      let windowRect = NSRect(x: 0, y: 0, width: 800, height: 600)
-      authWindow = AuthWebWindow(
-        contentRect: windowRect,
-        styleMask: [.titled, .closable, .miniaturizable, .resizable],
-        backing: .buffered,
-        defer: false
-      )
-
-      authWindow?.authViewController = viewControllerToPresent
-      authWindow?.contentViewController = viewControllerToPresent
-      authWindow?.makeKeyAndOrderFront(nil)
-
-      completion?()
+                completion: (() -> Void)? = nil) {
+      embeddedPresenter.present(viewControllerToPresent, completion: completion)
     }
 
     func dismiss(completion: (() -> Void)? = nil) {
-      authWindow?.authViewController = nil
-      authWindow?.close()
-      authWindow = nil
-      completion?()
+      embeddedPresenter.dismiss(completion: completion)
+    }
+
+    func presentationAnchor() -> NSWindow? {
+      NSApp.keyWindow
+        ?? NSApp.mainWindow
+        ?? NSApp.windows.first(where: { $0.isVisible })
     }
   }
 

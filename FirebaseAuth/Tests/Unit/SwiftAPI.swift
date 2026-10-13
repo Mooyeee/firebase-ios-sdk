@@ -350,10 +350,16 @@ class AuthAPI_hOnlyTests: XCTestCase {
         func dismiss(completion: (() -> Void)?) {
           completion?()
         }
+
+        @objc(presentationAnchor)
+        func presentationAnchor() -> NSWindow? {
+          nil
+        }
       }
       let obj = AuthUIImpl()
       obj.present(NSViewController(), completion: nil)
       obj.dismiss(completion: nil)
+      let _: NSWindow? = obj.presentationAnchor()
     }
   #endif
 
